@@ -7,9 +7,9 @@
   // - "light": Use the theme indicated by the "light" field
   // - "dark": Use the theme indicated by the "dark" field
   "theme": {
-    "mode": "system",
+    "mode": "dark",
     "light": "One Light",
-    "dark": "One Dark",
+    "dark": "Zed TUI",
   },
   "icon_theme": "Zed (Default)",
   // The name of a base set of key bindings to use.
@@ -51,12 +51,12 @@
   //         "buffer_line_height": {
   //           "custom": 2
   //         },
-  "buffer_line_height": "comfortable",
+  "buffer_line_height": "standard",
   // The name of a font to use for rendering text in the UI
   // You can set this to ".SystemUIFont" to use the system font
   // ".ZedSans" currently aliases to "IBM Plex Sans", but this may
   // change in the future
-  "ui_font_family": ".ZedSans",
+  "ui_font_family": ".ZedMono",
   // Set the UI's font fallbacks, this will be merged with the platform's
   // default font fallbacks.
   "ui_font_fallbacks": null,
@@ -68,7 +68,7 @@
   // The weight of the UI font in standard CSS units from 100 to 900.
   "ui_font_weight": 400,
   // The default font size for text in the UI
-  "ui_font_size": 16,
+  "ui_font_size": 14,
   // The font family for agent responses in the agent panel. Falls back to the UI font family if unset.
   "agent_ui_font_family": null,
   // The default font size for agent responses in the agent panel. Falls back to the UI font size if unset.
