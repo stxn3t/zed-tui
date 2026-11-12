@@ -3,8 +3,9 @@ use crate::{
     sidebar_side_context_menu,
 };
 use gpui::{
-    Anchor, AnyView, App, Context, Decorations, Entity, FocusHandle, Focusable, IntoElement,
-    ParentElement, Render, Role, SharedString, Styled, Subscription, WeakEntity, Window,
+    Anchor, AnyView, App, Context, Decorations, Entity, FocusHandle, Focusable, FontWeight,
+    IntoElement, ParentElement, Render, Role, SharedString, Styled, Subscription, WeakEntity,
+    Window,
 };
 use settings::{SettingsContent, update_settings_file};
 use std::{any::TypeId, sync::Arc};
@@ -192,10 +193,18 @@ impl StatusBar {
         sidebar: &SidebarStatus,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let colors = cx.theme().colors();
+        let mode_block = div().flex_none().px_2().bg(colors.text_accent).child(
+            Label::new("EDIT")
+                .size(LabelSize::Small)
+                .weight(FontWeight::BOLD)
+                .color(Color::Custom(colors.status_bar_background)),
+        );
         h_flex()
             .gap_1()
             .min_w_0()
             .overflow_x_hidden()
+            .child(mode_block)
             .when(
                 sidebar.show_toggle && !sidebar.open && sidebar.side == SidebarSide::Left,
                 |this| this.child(self.render_sidebar_toggle(sidebar, cx)),
