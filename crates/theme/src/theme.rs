@@ -50,7 +50,7 @@ pub use crate::ui_density::*;
 pub const DEFAULT_DARK_THEME: &str = "One Dark";
 
 /// Defines window border radius for platforms that use client side decorations.
-pub const CLIENT_SIDE_DECORATION_ROUNDING: Pixels = px(10.0);
+pub const CLIENT_SIDE_DECORATION_ROUNDING: Pixels = px(0.0);
 /// Defines window shadow size for platforms that use client side decorations.
 pub const CLIENT_SIDE_DECORATION_SHADOW: Pixels = px(10.0);
 /// Defines window border width for platforms that use client side decorations.

@@ -141,29 +141,22 @@ impl RenderOnce for Tab {
             }
         };
 
+        // Flat, terminal-style tabs: no side borders, and the selected tab is marked by a
+        // highlighted background with an accent underline instead of an open bottom edge.
+        let (tab_bg, underline_color) = if self.selected {
+            (
+                cx.theme().colors().element_selected,
+                cx.theme().colors().border_focused,
+            )
+        } else {
+            (tab_bg, cx.theme().colors().border)
+        };
+
         self.div
             .h(Tab::container_height(cx))
             .bg(tab_bg)
-            .border_color(cx.theme().colors().border)
-            .map(|this| match self.position {
-                TabPosition::First => {
-                    if self.selected {
-                        this.pl_px().border_r_1().pb_px()
-                    } else {
-                        this.pl_px().pr_px().border_b_1()
-                    }
-                }
-                TabPosition::Last => {
-                    if self.selected {
-                        this.border_l_1().border_r_1().pb_px()
-                    } else {
-                        this.pl_px().border_b_1().border_r_1()
-                    }
-                }
-                TabPosition::Middle(Ordering::Equal) => this.border_l_1().border_r_1().pb_px(),
-                TabPosition::Middle(Ordering::Less) => this.border_l_1().pr_px().border_b_1(),
-                TabPosition::Middle(Ordering::Greater) => this.border_r_1().pl_px().border_b_1(),
-            })
+            .border_b_1()
+            .border_color(underline_color)
             .cursor_pointer()
             .child(
                 h_flex()
