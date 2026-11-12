@@ -786,6 +786,10 @@ impl<D: PickerDelegate> Picker<D> {
         )
     }
 
+    fn is_modal(&self) -> bool {
+        matches!(self.presentation, Presentation::Modal { .. })
+    }
+
     /// Whether the picker can be resized (only ever true for modals).
     fn is_resizable(&self) -> bool {
         matches!(self.presentation, Presentation::Modal { resizable: true })

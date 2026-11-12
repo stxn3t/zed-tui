@@ -69,10 +69,25 @@ impl<D: PickerDelegate> Render for Picker<D> {
         // documentation aside (which is positioned outside the picker) isn't cut
         // off.
         let has_preview = self.preview.is_some();
-        let content = div()
-            .when(self.draws_own_container(), |this| this.elevation_3(cx))
-            .when(has_preview, |this| this.overflow_hidden())
-            .child(content);
+        let content = if self.is_modal() {
+            // Modal pickers are drawn as a terminal-style frame: square, no shadow, with
+            // the picker's name and match count in the top border.
+            div()
+                .bg(cx.theme().colors().elevated_surface_background)
+                .when(has_preview, |this| this.overflow_hidden())
+                .child(
+                    ui::TuiFrame::new(tui_title(D::name()))
+                        .fit_content()
+                        .focused(true)
+                        .end_title(SharedString::from(self.delegate.match_count().to_string()))
+                        .content(content),
+                )
+        } else {
+            div()
+                .when(self.draws_own_container(), |this| this.elevation_3(cx))
+                .when(has_preview, |this| this.overflow_hidden())
+                .child(content)
+        };
 
         let layout = self
             .preview_layout_rendered(window)
@@ -89,6 +104,14 @@ impl<D: PickerDelegate> Render for Picker<D> {
                     .child(self.render_resize(LeftCorner(layout), window, cx))
                     .child(self.render_resize(RightCorner(layout), window, cx))
             })
+    }
+}
+
+fn tui_title(picker_name: &str) -> SharedString {
+    match picker_name {
+        "command palette" => "commands".into(),
+        "file finder" => "files".into(),
+        other => other.to_lowercase().into(),
     }
 }
 

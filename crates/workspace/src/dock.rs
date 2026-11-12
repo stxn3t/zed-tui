@@ -9,15 +9,15 @@ use db::kvp::KeyValueStore;
 
 use gpui::{
     Action, Anchor, AnyView, App, Axis, Context, Entity, EntityId, EventEmitter, FocusHandle,
-    Focusable, FontWeight, Hsla, IntoElement, KeyContext, MouseButton, MouseDownEvent,
-    MouseUpEvent, ParentElement, Pixels, Render, SharedString, StyleRefinement, Styled,
-    Subscription, WeakEntity, Window, deferred, div, px,
+    Focusable, IntoElement, KeyContext, MouseButton, MouseDownEvent, MouseUpEvent, ParentElement,
+    Pixels, Render, SharedString, StyleRefinement, Styled, Subscription, WeakEntity, Window,
+    deferred, div, px,
 };
 use serde::{Deserialize, Serialize};
 use settings::{Settings, SettingsStore, TerminalDockPosition};
 use std::sync::Arc;
 use ui::{
-    ContextMenu, CountBadge, Divider, DividerColor, IconButton, Tooltip, prelude::*,
+    ContextMenu, CountBadge, Divider, DividerColor, IconButton, Tooltip, TuiFrame, prelude::*,
     right_click_menu,
 };
 use util::ResultExt as _;
@@ -1284,26 +1284,6 @@ impl Dock {
     }
 }
 
-pub(crate) const TUI_FRAME_TITLE_OFFSET: Pixels = px(9.);
-
-#[derive(Clone, Copy)]
-pub(crate) struct TuiFrameColors {
-    pub(crate) border: Hsla,
-    pub(crate) focused_border: Hsla,
-    pub(crate) background: Hsla,
-}
-
-impl TuiFrameColors {
-    pub(crate) fn new(cx: &App) -> Self {
-        let colors = cx.theme().colors();
-        Self {
-            border: colors.border,
-            focused_border: colors.panel_focused_border,
-            background: colors.panel_background,
-        }
-    }
-}
-
 pub(crate) fn tui_panel_title(panel_key: &str) -> SharedString {
     match panel_key {
         "ProjectPanel" => "1 explorer".into(),
@@ -1319,53 +1299,6 @@ pub(crate) fn tui_panel_title(panel_key: &str) -> SharedString {
             .to_lowercase()
             .into(),
     }
-}
-
-/// A box with a 1px border and its title drawn over the top border, in the style of
-/// terminal UIs. The frame turns the accent color while `is_focused` is true.
-pub(crate) fn tui_frame(
-    title: SharedString,
-    is_focused: bool,
-    content: impl IntoElement,
-    colors: TuiFrameColors,
-) -> Div {
-    let frame_color = if is_focused {
-        colors.focused_border
-    } else {
-        colors.border
-    };
-    div()
-        .relative()
-        .size_full()
-        .border_1()
-        .border_color(frame_color)
-        .child(
-            div()
-                .size_full()
-                .pt(px(4.))
-                .overflow_hidden()
-                .flex()
-                .flex_col()
-                .child(content),
-        )
-        .child(
-            div()
-                .absolute()
-                .top(-TUI_FRAME_TITLE_OFFSET)
-                .left(px(8.))
-                .px_1()
-                .bg(colors.background)
-                .child(
-                    Label::new(title)
-                        .size(LabelSize::Small)
-                        .color(if is_focused {
-                            Color::Accent
-                        } else {
-                            Color::Muted
-                        })
-                        .when(is_focused, |label| label.weight(FontWeight::BOLD)),
-                ),
-        )
 }
 
 impl Render for Dock {
@@ -1447,20 +1380,15 @@ impl Render for Dock {
                     Axis::Horizontal => this.w_full().h_full().flex_row(),
                     Axis::Vertical => this.h_full().w_full().flex_col(),
                 })
-                // The extra top padding leaves room for the frame title, which sits
-                // over the frame's top border and would otherwise be clipped.
-                .px_1()
-                .pb_1()
-                .pt(TUI_FRAME_TITLE_OFFSET + px(2.))
-                .child(tui_frame(
-                    title,
-                    is_focused,
-                    entry
-                        .panel
-                        .to_any()
-                        .cached(StyleRefinement::default().v_flex().size_full()),
-                    TuiFrameColors::new(cx),
-                ))
+                .p_1()
+                .child(
+                    TuiFrame::new(title).focused(is_focused).content(
+                        entry
+                            .panel
+                            .to_any()
+                            .cached(StyleRefinement::default().v_flex().size_full()),
+                    ),
+                )
                 .when(self.resizable(cx), |this| {
                     this.child(create_resize_handle())
                 })

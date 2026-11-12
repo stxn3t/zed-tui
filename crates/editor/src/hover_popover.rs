@@ -27,7 +27,7 @@ use std::{
 use std::{ops::Range, sync::Arc, time::Duration};
 use std::{path::PathBuf, rc::Rc};
 use theme_settings::ThemeSettings;
-use ui::{CopyButton, Scrollbars, WithScrollbar, prelude::*, theme_is_transparent};
+use ui::{CopyButton, Scrollbars, WithScrollbar, prelude::*};
 use url::Url;
 use util::TryFutureExt;
 use workspace::{OpenOptions, OpenVisible, Workspace};
@@ -1577,6 +1577,7 @@ impl InfoPopover {
             .id("info_popover")
             .occlude()
             .elevation_2(cx)
+            .bg(hover_popover_background(cx))
             .when(debugger_hover_only, |this| this.flex().flex_col())
             .child(
                 canvas(
@@ -1734,11 +1735,7 @@ impl DiagnosticPopover {
                 .absolute()
                 .size_full(),
             )
-            // Don't draw the background color if the theme
-            // allows transparent surfaces.
-            .when(theme_is_transparent(cx), |this| {
-                this.bg(gpui::transparent_black())
-            })
+            .bg(hover_popover_background(cx))
             // Prevent a mouse move on the popover from being propagated to the editor,
             // because that would dismiss the popover.
             .on_mouse_move({
@@ -1837,6 +1834,18 @@ fn hide_popovers(editor: &mut Editor, cx: &mut Context<Editor>) -> bool {
     }
 
     did_hide
+}
+
+/// Hover popovers sit on top of code, so with a translucent theme the text behind them
+/// competes with their content. Keep the theme's color but make it at least mostly opaque.
+const HOVER_POPOVER_MIN_OPACITY: f32 = 0.85;
+
+fn hover_popover_background(cx: &App) -> Hsla {
+    let background = cx.theme().colors().elevated_surface_background;
+    Hsla {
+        a: background.a.max(HOVER_POPOVER_MIN_OPACITY),
+        ..background
+    }
 }
 
 #[cfg(test)]

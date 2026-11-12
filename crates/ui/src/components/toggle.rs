@@ -4,7 +4,6 @@ use gpui::{
 };
 use std::{rc::Rc, sync::Arc};
 
-use crate::utils::is_light;
 use crate::{Color, Icon, IconName, ToggleState, Tooltip};
 use crate::{ElevationIndex, KeyBinding, prelude::*};
 
@@ -294,26 +293,6 @@ pub enum SwitchColor {
     Custom(Hsla),
 }
 
-impl SwitchColor {
-    fn get_colors(&self, is_on: bool, cx: &App) -> (Hsla, Hsla) {
-        if !is_on {
-            return (
-                cx.theme().colors().element_disabled,
-                cx.theme().colors().border,
-            );
-        }
-
-        match self {
-            SwitchColor::Accent => {
-                let status = cx.theme().status();
-                let colors = cx.theme().colors();
-                (status.info.opacity(0.4), colors.text_accent.opacity(0.2))
-            }
-            SwitchColor::Custom(color) => (*color, color.opacity(0.6)),
-        }
-    }
-}
-
 impl From<SwitchColor> for Color {
     fn from(color: SwitchColor) -> Self {
         match color {
@@ -452,23 +431,20 @@ impl Switch {
 impl RenderOnce for Switch {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let is_on = self.toggle_state == ToggleState::Selected;
-        let adjust_ratio = if is_light(cx) { 1.5 } else { 1.0 };
-
-        let base_color = cx.theme().colors().text;
-        let thumb_color = base_color;
-        let (bg_color, border_color) = self.color.get_colors(is_on, cx);
-
-        let bg_hover_color = if is_on {
-            bg_color.blend(base_color.opacity(0.16 * adjust_ratio))
-        } else {
-            bg_color.blend(base_color.opacity(0.05 * adjust_ratio))
+        let colors = cx.theme().colors();
+        // Drawn as terminal-style `[x]` / `[ ]` text instead of a pill-shaped switch.
+        let (marker, marker_color) = match (is_on, self.disabled) {
+            (_, true) => (if is_on { "[x]" } else { "[ ]" }, colors.text_disabled),
+            (true, false) => (
+                "[x]",
+                match self.color {
+                    SwitchColor::Accent => colors.text_accent,
+                    SwitchColor::Custom(color) => color,
+                },
+            ),
+            (false, false) => ("[ ]", colors.text_muted),
         };
-
-        let thumb_opacity = match (is_on, self.disabled) {
-            (_, true) => 0.2,
-            (true, false) => 1.0,
-            (false, false) => 0.5,
-        };
+        let marker_hover_color = if is_on { marker_color } else { colors.text };
 
         let group_id = format!("switch_group_{:?}", self.id);
         let label = self.label;
@@ -495,9 +471,8 @@ impl RenderOnce for Switch {
                 ToggleState::Unselected => Toggled::False,
             })
             .p(px(1.0))
-            .border_2()
+            .border_1()
             .border_color(cx.theme().colors().border_transparent)
-            .rounded_full()
             .when_some(
                 self.tab_index.filter(|_| !self.disabled),
                 |this, tab_index| {
@@ -514,31 +489,15 @@ impl RenderOnce for Switch {
                 },
             )
             .child(
-                h_flex()
-                    .w(DynamicSpacing::Base32.rems(cx))
-                    .h(DynamicSpacing::Base20.rems(cx))
+                div()
                     .group(group_id.clone())
-                    .child(
-                        h_flex()
-                            .when(is_on, |on| on.justify_end())
-                            .when(!is_on, |off| off.justify_start())
-                            .size_full()
-                            .rounded_full()
-                            .px(DynamicSpacing::Base02.px(cx))
-                            .bg(bg_color)
-                            .when(!self.disabled, |this| {
-                                this.group_hover(group_id.clone(), |el| el.bg(bg_hover_color))
-                            })
-                            .border_1()
-                            .border_color(border_color)
-                            .child(
-                                div()
-                                    .size(DynamicSpacing::Base12.rems(cx))
-                                    .rounded_full()
-                                    .bg(thumb_color)
-                                    .opacity(thumb_opacity),
-                            ),
-                    ),
+                    .flex_none()
+                    .text_color(marker_color)
+                    .when(is_on, |this| this.font_weight(gpui::FontWeight::BOLD))
+                    .when(!self.disabled, |this| {
+                        this.group_hover(group_id.clone(), |el| el.text_color(marker_hover_color))
+                    })
+                    .child(marker),
             );
 
         h_flex()

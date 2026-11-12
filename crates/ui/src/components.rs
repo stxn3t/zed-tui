@@ -41,6 +41,7 @@ mod tab_bar;
 mod toggle;
 mod tooltip;
 mod tree_view_item;
+mod tui_frame;
 
 pub use ai::*;
 pub use avatar::*;
@@ -85,3 +86,4 @@ pub use tab_bar::*;
 pub use toggle::*;
 pub use tooltip::*;
 pub use tree_view_item::*;
+pub use tui_frame::*;

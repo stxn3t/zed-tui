@@ -2113,13 +2113,19 @@ impl Render for MultiWorkspace {
                         .occlude(),
                 );
 
+                let is_focused = sidebar_handle.focus_handle(cx).contains_focused(window, cx);
                 div()
                     .id("sidebar-container")
                     .relative()
                     .h_full()
                     .w(sidebar_width)
                     .flex_shrink_0()
-                    .child(sidebar_handle.to_any())
+                    .p_1()
+                    .child(
+                        ui::TuiFrame::new("threads")
+                            .focused(is_focused)
+                            .content(sidebar_handle.to_any()),
+                    )
                     .child(resize_handle)
                     .into_any_element()
             })

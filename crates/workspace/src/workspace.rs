@@ -9251,7 +9251,7 @@ impl Workspace {
             .iter()
             .any(|pane| pane.read(cx).has_focus(window, cx));
         let is_a11y_active = window.is_a11y_active();
-        let frame_colors = dock::TuiFrameColors::new(cx);
+        let background = cx.theme().colors().panel_background;
         let center = self.center.render(
             self.zoomed.as_ref(),
             self.maximized_pane.as_ref(),
@@ -9267,16 +9267,13 @@ impl Workspace {
                 this.track_focus(&self.region_focus_handles.editor)
             })
             .size_full()
-            .bg(frame_colors.background)
-            .px_1()
-            .pb_1()
-            .pt(dock::TUI_FRAME_TITLE_OFFSET + px(2.))
-            .child(dock::tui_frame(
-                "2 editor".into(),
-                is_focused,
-                center,
-                frame_colors,
-            ))
+            .bg(background)
+            .p_1()
+            .child(
+                ui::TuiFrame::new("2 editor")
+                    .focused(is_focused)
+                    .content(center),
+            )
     }
 
     pub fn for_window(window: &Window, cx: &App) -> Option<Entity<Workspace>> {
@@ -10255,8 +10252,12 @@ impl Render for Workspace {
                                     },
                                 ))
                             })
-                            .child({
-                                match bottom_dock_layout {
+                            // While something is zoomed, the regular layout isn't drawn at
+                            // all. The zoomed overlay's background can be translucent, and
+                            // the docks and editor would otherwise show through it.
+                            .when(self.zoomed.is_none(), |this| {
+                                this.child({
+                                    match bottom_dock_layout {
                                     BottomDockLayout::Full => div()
                                         .flex()
                                         .flex_col()
@@ -10496,6 +10497,7 @@ impl Render for Workspace {
                                             cx,
                                         )),
                                 }
+                                })
                             })
                             .children(self.zoomed.as_ref().and_then(|view| {
                                 let zoomed_view = view.upgrade()?;
@@ -10523,28 +10525,28 @@ impl Render for Workspace {
                                         })
                                         .into_any_element(),
                                 };
+                                let zoomed_title = match self.zoomed_position {
+                                    Some(position) => self
+                                        .dock_at_position(position)
+                                        .read(cx)
+                                        .active_panel()
+                                        .map(|panel| dock::tui_panel_title(panel.panel_key()))
+                                        .unwrap_or_else(|| "zoom".into()),
+                                    None => "2 editor".into(),
+                                };
                                 let overlay = div()
                                     .occlude()
                                     .absolute()
                                     .overflow_hidden()
-                                    .border_color(colors.border)
                                     .bg(colors.background)
-                                    .child(zoomed_element)
                                     .inset_0()
-                                    .shadow_lg();
-
-                                if !WorkspaceSettings::get_global(cx).zoomed_padding {
-                                    return Some(overlay);
-                                }
-
-                                Some(match self.zoomed_position {
-                                    Some(DockPosition::Left) => overlay.right_2().border_r_1(),
-                                    Some(DockPosition::Right) => overlay.left_2().border_l_1(),
-                                    Some(DockPosition::Bottom) => overlay.top_2().border_t_1(),
-                                    None => {
-                                        overlay.top_2().bottom_2().left_2().right_2().border_1()
-                                    }
-                                })
+                                    .p_1()
+                                    .child(
+                                        ui::TuiFrame::new(zoomed_title)
+                                            .focused(true)
+                                            .content(zoomed_element),
+                                    );
+                                Some(overlay)
                             }))
                             .children(self.render_notifications(window, cx)),
                     )

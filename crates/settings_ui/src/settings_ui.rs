@@ -3209,8 +3209,6 @@ impl SettingsWindow {
             .p_2p5()
             .when(cfg!(target_os = "macos"), |this| this.pt_10())
             .flex_none()
-            .border_r_1()
-            .border_color(cx.theme().colors().border)
             .bg(cx.theme().colors().panel_background)
             .child(self.render_search(window, cx))
             .child(
@@ -4650,6 +4648,25 @@ impl SettingsWindow {
 impl Render for SettingsWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let ui_font = theme_settings::setup_ui_font(window, cx);
+        let nav_focused = self
+            .navbar_focus_handle
+            .focus_handle(cx)
+            .contains_focused(window, cx)
+            || self
+                .search_bar
+                .focus_handle(cx)
+                .contains_focused(window, cx);
+        let page_title: SharedString = self.current_page().title.to_lowercase().into();
+        // The title bar's children are taken on every render, so the header text is set
+        // again each time instead of once at creation.
+        if let Some(title_bar) = &self.title_bar {
+            title_bar.update(cx, |title_bar, _| {
+                title_bar.set_children([Label::new("zed settings")
+                    .size(LabelSize::Small)
+                    .color(Color::Muted)
+                    .into_any_element()]);
+            });
+        }
 
         client_side_decorations(
             v_flex()
@@ -4724,11 +4741,22 @@ impl Render for SettingsWindow {
                         .font(ui_font)
                         .bg(cx.theme().colors().background)
                         .text_color(cx.theme().colors().text)
-                        .when(!cfg!(target_os = "macos"), |this| {
-                            this.border_t_1().border_color(cx.theme().colors().border)
-                        })
-                        .child(self.render_nav(window, cx))
-                        .child(self.render_page(window, cx)),
+                        .p_1()
+                        .gap_1()
+                        .child(
+                            div().flex_none().h_full().w(SIDEBAR_WIDTH).child(
+                                ui::TuiFrame::new("settings")
+                                    .focused(nav_focused)
+                                    .content(self.render_nav(window, cx)),
+                            ),
+                        )
+                        .child(
+                            div().flex_1().min_w_0().h_full().child(
+                                ui::TuiFrame::new(page_title)
+                                    .focused(!nav_focused)
+                                    .content(self.render_page(window, cx)),
+                            ),
+                        ),
                 ),
             window,
             cx,

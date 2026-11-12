@@ -198,7 +198,9 @@ impl StatusBar {
             Label::new("EDIT")
                 .size(LabelSize::Small)
                 .weight(FontWeight::BOLD)
-                .color(Color::Custom(colors.status_bar_background)),
+                // A fixed near-black instead of a theme background color, because those
+                // can be translucent and would make the label invisible on the accent.
+                .color(Color::Custom(gpui::hsla(0., 0., 0.05, 1.))),
         );
         h_flex()
             .gap_1()
