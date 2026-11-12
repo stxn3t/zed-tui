@@ -9245,20 +9245,37 @@ impl Workspace {
         window: &mut Window,
         cx: &mut App,
     ) -> impl IntoElement {
+        let is_focused = self
+            .center
+            .panes()
+            .iter()
+            .any(|pane| pane.read(cx).has_focus(window, cx));
+        let is_a11y_active = window.is_a11y_active();
+        let frame_colors = dock::TuiFrameColors::new(cx);
+        let center = self.center.render(
+            self.zoomed.as_ref(),
+            self.maximized_pane.as_ref(),
+            render_cx,
+            window,
+            cx,
+        );
         div()
             .id("editor-region")
             .role(gpui::Role::Main)
             .aria_label("Editor")
-            .when(window.is_a11y_active(), |this| {
+            .when(is_a11y_active, |this| {
                 this.track_focus(&self.region_focus_handles.editor)
             })
             .size_full()
-            .child(self.center.render(
-                self.zoomed.as_ref(),
-                self.maximized_pane.as_ref(),
-                render_cx,
-                window,
-                cx,
+            .bg(frame_colors.background)
+            .px_1()
+            .pb_1()
+            .pt(dock::TUI_FRAME_TITLE_OFFSET + px(2.))
+            .child(dock::tui_frame(
+                "2 editor".into(),
+                is_focused,
+                center,
+                frame_colors,
             ))
     }
 

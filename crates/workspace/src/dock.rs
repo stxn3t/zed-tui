@@ -9,9 +9,9 @@ use db::kvp::KeyValueStore;
 
 use gpui::{
     Action, Anchor, AnyView, App, Axis, Context, Entity, EntityId, EventEmitter, FocusHandle,
-    Focusable, IntoElement, KeyContext, MouseButton, MouseDownEvent, MouseUpEvent, ParentElement,
-    Render, SharedString, StyleRefinement, Styled, Subscription, WeakEntity, Window, deferred, div,
-    px,
+    Focusable, FontWeight, Hsla, IntoElement, KeyContext, MouseButton, MouseDownEvent,
+    MouseUpEvent, ParentElement, Pixels, Render, SharedString, StyleRefinement, Styled,
+    Subscription, WeakEntity, Window, deferred, div, px,
 };
 use serde::{Deserialize, Serialize};
 use settings::{Settings, SettingsStore, TerminalDockPosition};
@@ -290,7 +290,7 @@ pub struct Dock {
     restoration: DockRestoreState,
     zoom_layer_open: bool,
     modal_layer: Entity<ModalLayer>,
-    _subscriptions: [Subscription; 2],
+    _subscriptions: [Subscription; 4],
 }
 
 enum DockRestoreState {
@@ -446,6 +446,12 @@ impl Dock {
                     dock.zoom_layer_open = is_zoomed;
                 }
             });
+            // The panel frame is drawn in the accent color while focus is inside the dock,
+            // so the dock has to re-render whenever focus enters or leaves it.
+            let focus_in_subscription =
+                cx.on_focus_in(&focus_handle, window, |_, _, cx| cx.notify());
+            let focus_out_subscription =
+                cx.on_focus_out(&focus_handle, window, |_, _, _, cx| cx.notify());
             Self {
                 position,
                 workspace: workspace.downgrade(),
@@ -453,7 +459,12 @@ impl Dock {
                 active_panel_index: None,
                 is_open: false,
                 focus_handle: focus_handle.clone(),
-                _subscriptions: [focus_subscription, zoom_subscription],
+                _subscriptions: [
+                    focus_subscription,
+                    zoom_subscription,
+                    focus_in_subscription,
+                    focus_out_subscription,
+                ],
                 restoration: DockRestoreState::Restoring { pending: None },
                 zoom_layer_open: false,
                 modal_layer,
@@ -1273,11 +1284,97 @@ impl Dock {
     }
 }
 
+pub(crate) const TUI_FRAME_TITLE_OFFSET: Pixels = px(9.);
+
+#[derive(Clone, Copy)]
+pub(crate) struct TuiFrameColors {
+    pub(crate) border: Hsla,
+    pub(crate) focused_border: Hsla,
+    pub(crate) background: Hsla,
+}
+
+impl TuiFrameColors {
+    pub(crate) fn new(cx: &App) -> Self {
+        let colors = cx.theme().colors();
+        Self {
+            border: colors.border,
+            focused_border: colors.panel_focused_border,
+            background: colors.panel_background,
+        }
+    }
+}
+
+pub(crate) fn tui_panel_title(panel_key: &str) -> SharedString {
+    match panel_key {
+        "ProjectPanel" => "1 explorer".into(),
+        "OutlinePanel" => "3 outline".into(),
+        "TerminalPanel" => "4 terminal".into(),
+        "GitPanel" => "git".into(),
+        "DebugPanel" => "debug".into(),
+        "CollaborationPanel" => "collab".into(),
+        "agent_panel" => "agent".into(),
+        other => other
+            .trim_end_matches("Panel")
+            .trim_end_matches("_panel")
+            .to_lowercase()
+            .into(),
+    }
+}
+
+/// A box with a 1px border and its title drawn over the top border, in the style of
+/// terminal UIs. The frame turns the accent color while `is_focused` is true.
+pub(crate) fn tui_frame(
+    title: SharedString,
+    is_focused: bool,
+    content: impl IntoElement,
+    colors: TuiFrameColors,
+) -> Div {
+    let frame_color = if is_focused {
+        colors.focused_border
+    } else {
+        colors.border
+    };
+    div()
+        .relative()
+        .size_full()
+        .border_1()
+        .border_color(frame_color)
+        .child(
+            div()
+                .size_full()
+                .pt(px(4.))
+                .overflow_hidden()
+                .flex()
+                .flex_col()
+                .child(content),
+        )
+        .child(
+            div()
+                .absolute()
+                .top(-TUI_FRAME_TITLE_OFFSET)
+                .left(px(8.))
+                .px_1()
+                .bg(colors.background)
+                .child(
+                    Label::new(title)
+                        .size(LabelSize::Small)
+                        .color(if is_focused {
+                            Color::Accent
+                        } else {
+                            Color::Muted
+                        })
+                        .when(is_focused, |label| label.weight(FontWeight::BOLD)),
+                ),
+        )
+}
+
 impl Render for Dock {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let dispatch_context = Self::dispatch_context(cx);
         if let Some(entry) = self.visible_entry() {
             let position = self.position;
+            let is_focused = self.focus_handle.contains_focused(window, cx);
+            let title = tui_panel_title(entry.panel.panel_key());
             let create_resize_handle = || {
                 let handle = div()
                     .id("resize-handle")
@@ -1344,32 +1441,26 @@ impl Render for Dock {
                 .focus_follows_mouse(WorkspaceSettings::get_global(cx).focus_follows_mouse, cx)
                 .flex()
                 .bg(cx.theme().colors().panel_background)
-                .border_color(cx.theme().colors().border)
-                .overflow_hidden()
                 .map(|this| match self.position().axis() {
                     // Width and height are always set on the workspace wrapper in
                     // render_dock, so fill whatever space the wrapper provides.
                     Axis::Horizontal => this.w_full().h_full().flex_row(),
                     Axis::Vertical => this.h_full().w_full().flex_col(),
                 })
-                .map(|this| match self.position() {
-                    DockPosition::Left => this.border_r_1(),
-                    DockPosition::Right => this.border_l_1(),
-                    DockPosition::Bottom => this.border_t_1(),
-                })
-                .child(
-                    div()
-                        .map(|this| match self.position().axis() {
-                            Axis::Horizontal => this.w_full().h_full(),
-                            Axis::Vertical => this.h_full().w_full(),
-                        })
-                        .child(
-                            entry
-                                .panel
-                                .to_any()
-                                .cached(StyleRefinement::default().v_flex().size_full()),
-                        ),
-                )
+                // The extra top padding leaves room for the frame title, which sits
+                // over the frame's top border and would otherwise be clipped.
+                .px_1()
+                .pb_1()
+                .pt(TUI_FRAME_TITLE_OFFSET + px(2.))
+                .child(tui_frame(
+                    title,
+                    is_focused,
+                    entry
+                        .panel
+                        .to_any()
+                        .cached(StyleRefinement::default().v_flex().size_full()),
+                    TuiFrameColors::new(cx),
+                ))
                 .when(self.resizable(cx), |this| {
                     this.child(create_resize_handle())
                 })
